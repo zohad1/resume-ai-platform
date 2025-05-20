@@ -1,0 +1,64 @@
+"use client"
+
+import React, { createContext, useContext, useEffect, useState } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
+
+type Theme = "dark" | "light" | "system"
+
+type ThemeProviderProps = {
+  children: React.ReactNode
+  defaultTheme?: Theme
+  storageKey?: string
+}
+
+type ThemeProviderState = {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+}
+
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined)
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
+  storageKey = "ui-theme",
+}: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<Theme>(defaultTheme)
+  const [isMounted, setIsMounted] = useState(false)
+  const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)")
+
+  useEffect(() => {
+    setIsMounted(true)
+
+    const storedTheme = localStorage.getItem(storageKey) as Theme
+    if (storedTheme) {
+      setThemeState(storedTheme)
+    }
+  }, [storageKey])
+
+  useEffect(() => {
+    const root = window.document.documentElement
+    root.classList.remove("light", "dark")
+
+    const appliedTheme = theme === "system" ? (prefersDarkMode ? "dark" : "light") : theme
+    root.classList.add(appliedTheme)
+  }, [theme, prefersDarkMode])
+
+  const setTheme = (theme: Theme) => {
+    localStorage.setItem(storageKey, theme)
+    setThemeState(theme)
+  }
+
+  const value = { theme, setTheme }
+
+  // Prevent rendering until mounted to avoid mismatch
+  if (!isMounted) return null
+
+  return <ThemeProviderContext.Provider value={value}>{children}</ThemeProviderContext.Provider>
+}
+
+export const useTheme = () => {
+  const context = useContext(ThemeProviderContext)
+  if (!context) throw new Error("useTheme must be used within a ThemeProvider")
+  return context
+}
